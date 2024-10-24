@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Hand Tracking</title>
+    <link rel="stylesheet" href="styles.css">
+    <style type="text/css">
+        body {margin: 0;overflow: hidden;}
+        video {position: absolute;top: 0;left: 0;
+                transform: scaleX(-1);}
+        #dot{width:30px; height: 30px; position: absolute; background: red; left:0; top:0;}
+        #circle{width: 100vw; height: 100vh; background: red;
+                                position: absolute; left:0; top:0;
+                                border-radius: 50%;}
+    </style>
+</head>
+<body>
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+    <button id="stopBut">stop</button>
+    <button id="playBut" style="left:100px;">play</button>
+    <div id="dot"></div>
+    <div id="circle"></div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
+    <script>
+let video = document.getElementById('webcam');
+let handposeModel;
+
+//프레임애니메이션용 변수
+let camplay; 
+stopBut.onclick = ()=> window.cancelAnimationFrame(camplay);
+playBut.onclick = ()=> detectHands();
+
+// 1. 웹캠 시작 
+async function startWebcam() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+    } catch (err) {
+        console.error('웹캠 권한을 요청하는 중 오류 발생:', err);
+    }
+}
+
+// 2. 1번의 비디오 로드되어서 이벤트 호출되면 손 추적 시작
+video.addEventListener('loadeddata', async () => {
+    try {
+              // 비디오 로드가 끝나면 이번에는 핸드포즈 머신러닝을 불러온다. await는 로드까지 기다린다는 의미
+        handposeModel = await handpose.load();
+
+        // 핸드포즈가 준비되었으면 손동작 감지를 실행
+        detectHands(); 
+    } catch (err) {
+        console.error('모델 로딩 중 오류가 발생했습니다:', err);
+    }
+});
+
+// 3. 감지된 데이터 받아오고 실행
+async function detectHands() {
+                //predictions로 감지결과를 받아온다. 여기엔 모든 손가락과 손바닥의 좌표가 배열로 들어간다.
+                //estimateHands()함수에 video데이터를 넣어서 분석하고 predictions를 받아오는것.
+    const predictions = await handposeModel.estimateHands(video);
+
+    //예측한 결과가 있으면(데이터가 0보다 크면)
+    if (predictions.length > 0) {
+        //그 중 검지손가락 좌표를 indexFinger라고 하자.
+        const indexFinger = predictions[0].annotations.indexFinger[3]; 
+        //그리기 함수로 좌표를 보낸다.
+        action(indexFinger[0],indexFinger[1]);
+    }
+    // 이 감지를 계속 실행한다.
+    camplay = requestAnimationFrame(detectHands); 
+}
+
+// 4. 받아온 좌표로 사각형을 이동
+function action(xplot,yplot){
+    
+        //여기에 circle의 width와 height을 xplot, yplot에 비례하게 바꾸어주는 코드를 넣자.
+        circle.style.width = ((640-xplot)/640)*100 + "vw";
+        circle.style.height = ((480-yplot)/480)*100 + "vh";
+}
+
+//시작해보자.
+startWebcam();
+</script>
+<style>
+ #circle{width: 100vw; height: 100vh; background: red;
+                                position: absolute;left:50vw; top:50vh;
+                                border-radius: 50%; 
+                                                /*중심점이 가운데오도록*/
+                                transform: translate(-50%,-50%);
+                        }
+ video{display: none;}
+</style>
+</body>
+</html>
